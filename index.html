@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clinical Supply Price Comparison</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .bg-gradient { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .glass-effect { backdrop-filter: blur(10px); background: rgba(255, 255, 255, 0.1); }
+        .shadow-soft { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
+        .shadow-medium { box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); }
+        .animate-fade-in { animation: fadeIn 0.5s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-scale-in { animation: scaleIn 0.3s ease-out; }
+        @keyframes scaleIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .hover-lift { transition: transform 0.2s ease-in-out; }
+        .hover-lift:hover { transform: translateY(-2px); }
+        .price-lowest { background: linear-gradient(135deg, #10b981, #059669); }
+        .price-highest { background: linear-gradient(135deg, #ef4444, #dc2626); }
+        .price-middle { background: linear-gradient(135deg, #f59e0b, #d97706); }
+        .table-header { background: linear-gradient(135deg, #f8fafc, #e2e8f0); }
+        .loading-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div id="root"></div>
+
+    <script>
+        // Utility functions for Lucide icons
+        function createIcon(iconName, className = 'w-4 h-4') {
+            const iconElement = document.createElement('i');
+            iconElement.setAttribute('data-lucide', iconName);
+            iconElement.className = className;
+            return iconElement;
+        }
+
+        // Main application state
+        const AppState = {
+            products: [
+                { id: 1, name: 'Surgical Gloves (Box of 100)', sku: 'SG-100', category: 'PPE' },
+                { id: 2, name: 'N95 Respirator Masks (Pack of 20)', sku: 'N95-20', category: 'PPE' },
+                { id: 3, name: 'Disposable Syringes 10ml (Pack of 50)', sku: 'SYR-10-50', category: 'Syringes' },
+                { id: 4, name: 'Digital Thermometer', sku: 'THERM-001', category: 'Instruments' },
+                { id: 5, name: 'Blood Pressure Cuff Adult', sku: 'BP-ADULT', category: 'Instruments' }
+            ],
+            suppliers: [
+                { id: 1, name: 'MedSupply Pro', url: 'https://medsupply.com', status: 'active' },
+                { id: 2, name: 'Clinical Direct', url: 'https://clinicaldirect.com', status: 'active' },
+                { id: 3, name: 'Healthcare Plus', url: 'https://healthcareplus.com', status: 'active' },
+                { id: 4, name: 'Medical Depot', url: 'https://medicaldepot.com', status: 'pending' }
+            ],
+            priceData: {
+                1: { 1: 24.99, 2: 22.50, 3: 26.75, 4: null },
+                2: { 1: 45.99, 2: 42.00, 3: 48.50, 4: null },
+                3: { 1: 18.75, 2: 17.25, 3: 19.99, 4: null },
+                4: { 1: 12.99, 2: 11.50, 3: 14.25, 4: null },
+                5: { 1: 34.99, 2: 32.75, 3: 36.50, 4: null }
+            },
+            selectedProducts: [],
+            selectedSuppliers: [],
+            lastUpdated: new Date(),
+            isLoading: false
+        };
+
+        // Component: Header
+        function Header() {
+            return `
+                <header class="bg-white shadow-soft border-b border-gray-200">
+                    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                        <div class="flex justify-between items-center h-16">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-10 h-10 bg-gradient rounded-lg flex items-center justify-center">
+                                    <i data-lucide="stethoscope" class="w-6 h-6 text-white"></i>
+                                </div>
+                                <div>
+                                    <h1 class="text-xl font-semibold text-gray-900">Clinical Supply Price Tracker</h1>
+                                    <p class="text-sm text-gray-500">Compare prices across multiple suppliers</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-4">
+                                <button onclick="refreshData()" class="inline-flex items-center px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 hover-lift shadow-soft transition-all">
+                                    <i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i>
+                                    Refresh
+                                </button>
+                                <button onclick="exportData()" class="inline-flex items-center px-3 py-2 bg-blue-600 border border-transparent rounded-lg text-sm font-medium text-white hover:bg-blue-700 hover-lift shadow-soft transition-all">
+                                    <i data-lucide="download" class="w-4 h-4 mr-2"></i>
+                                    Export
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </header>
+            `;
+        }
+
+        // Component: Statistics Cards
+        function StatsCards() {
+            const totalProducts = AppState.products.length;
+            const activeSuppliers = AppState.suppliers.filter(s => s.status === 'active').length;
+            const avgSavings = '23%';
+            const lastUpdate = new Date().toLocaleDateString();
+
+            return `
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white rounded-xl shadow-soft p-6 border border-gray-100 hover-lift animate-fade-in">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">Tracked Products</p>
+                                <p class="text-2xl font-bold text-gray-900">${totalProducts}</p>
+                            </div>
+                            <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                                <i data-lucide="package" class="w-6 h-6 text-blue-600"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-soft p-6 border border-gray-100 hover-lift animate-fade-in" style="animation-delay: 0.1s">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">Active Suppliers</p>
+                                <p class="text-2xl font-bold text-gray-900">${activeSuppliers}</p>
+                            </div>
+                            <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+                                <i data-lucide="building" class="w-6 h-6 text-green-600"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-soft p-6 border border-gray-100 hover-lift animate-fade-in" style="animation-delay: 0.2s">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">Avg. Savings</p>
+                                <p class="text-2xl font-bold text-gray-900">${avgSavings}</p>
+                            </div>
+                            <div class="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center">
+                                <i data-lucide="trending-down" class="w-6 h-6 text-yellow-600"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-soft p-6 border border-gray-100 hover-lift animate-fade-in" style="animation-delay: 0.3s">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">Last Updated</p>
+                                <p class="text-sm font-bold text-gray-900">${lastUpdate}</p>
+                            </div>
+                            <div class="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+                                <i data-lucide="clock" class="w-6 h-6 text-purple-600"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Component: Product Management Panel
+        function ProductManagement() {
+            return `
+                <div class="bg-white rounded-xl shadow-soft p-6 mb-8 border border-gray-100 animate-fade-in">
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                                <i data-lucide="plus" class="w-5 h-5 text-blue-600"></i>
+                            </div>
+                            <h2 class="text-lg font-semibold text-gray-900">Product & Supplier Management</h2>
+                        </div>
+                        <button onclick="toggleAddProduct()" class="inline-flex items-center px-3 py-2 bg-blue-600 border border-transparent rounded-lg text-sm font-medium text-white hover:bg-blue-700 hover-lift shadow-soft transition-all">
+                            <i data-lucide="plus" class="w-4 h-4 mr-2"></i>
+                            Add Product
+                        </button>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div>
+                            <h3 class="text-md font-medium text-gray-900 mb-4">Tracked Products</h3>
+                            <div class="space-y-3 max-h-64 overflow-y-auto">
+                                ${AppState.products.map(product => `
+                                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                                        <div class="flex-1">
+                                            <p class="font-medium text-gray-900 text-sm">${product.name}</p>
+                                            <p class="text-xs text-gray-500">SKU: ${product.sku} • ${product.category}</p>
+                                        </div>
+                                        <button onclick="removeProduct(${product.id})" class="text-red-500 hover:text-red-700 p-1">
+                                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                        </button>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-md font-medium text-gray-900">Supplier Sources</h3>
+                                <button onclick="toggleAddSupplier()" class="text-blue-600 hover:text-blue-700 text-sm">
+                                    <i data-lucide="plus" class="w-4 h-4 inline mr-1"></i>
+                                    Add Supplier
+                                </button>
+                            </div>
+                            <div class="space-y-3 max-h-64 overflow-y-auto">
+                                ${AppState.suppliers.map(supplier => `
+                                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                                        <div class="flex-1">
+                                            <div class="flex items-center space-x-2">
+                                                <p class="font-medium text-gray-900 text-sm">${supplier.name}</p>
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${supplier.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}">
+                                                    ${supplier.status}
+                                                </span>
+                                            </div>
+                                            <p class="text-xs text-gray-500">${supplier.url}</p>
+                                        </div>
+                                        <button onclick="removeSupplier(${supplier.id})" class="text-red-500 hover:text-red-700 p-1">
+                                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                        </button>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Component: Price Comparison Table
+        function PriceComparisonTable() {
+            const activeSuppliers = AppState.suppliers.filter(s => s.status === 'active');
+            
+            return `
+                <div class="bg-white rounded-xl shadow-soft border border-gray-100 animate-fade-in">
+                    <div class="p-6 border-b border-gray-200">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                                    <i data-lucide="bar-chart-3" class="w-5 h-5 text-green-600"></i>
+                                </div>
+                                <h2 class="text-lg font-semibold text-gray-900">Price Comparison</h2>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <span class="text-sm text-gray-500">Last updated: ${new Date().toLocaleTimeString()}</span>
+                                <button onclick="scrapeData()" class="inline-flex items-center px-3 py-2 bg-green-600 border border-transparent rounded-lg text-sm font-medium text-white hover:bg-green-700 hover-lift shadow-soft transition-all">
+                                    <i data-lucide="search" class="w-4 h-4 mr-2"></i>
+                                    ${AppState.isLoading ? 'Scraping...' : 'Scrape Now'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="table-header">
+                                <tr>
+                                    <th class="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
+                                    ${activeSuppliers.map(supplier => `
+                                        <th class="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            ${supplier.name}
+                                        </th>
+                                    `).join('')}
+                                    <th class="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Best Price</th>
+                                    <th class="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Savings</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-200">
+                                ${AppState.products.map(product => {
+                                    const productPrices = AppState.priceData[product.id] || {};
+                                    const availablePrices = activeSuppliers
+                                        .map(supplier => ({ supplier, price: productPrices[supplier.id] }))
+                                        .filter(item => item.price !== null && item.price !== undefined);
+                                    
+                                    const minPrice = availablePrices.length > 0 ? Math.min(...availablePrices.map(item => item.price)) : null;
+                                    const maxPrice = availablePrices.length > 0 ? Math.max(...availablePrices.map(item => item.price)) : null;
+                                    const bestSupplier = availablePrices.find(item => item.price === minPrice);
+                                    const savings = minPrice && maxPrice ? ((maxPrice - minPrice) / maxPrice * 100).toFixed(1) : '0';
+
+                                    return `
+                                        <tr class="hover:bg-gray-50 transition-colors">
+                                            <td class="px-6 py-4">
+                                                <div>
+                                                    <p class="font-medium text-gray-900 text-sm">${product.name}</p>
+                                                    <p class="text-xs text-gray-500">SKU: ${product.sku} • ${product.category}</p>
+                                                </div>
+                                            </td>
+                                            ${activeSuppliers.map(supplier => {
+                                                const price = productPrices[supplier.id];
+                                                let priceClass = 'bg-gray-100 text-gray-600';
+                                                if (price === minPrice && minPrice !== null) priceClass = 'price-lowest text-white';
+                                                else if (price === maxPrice && maxPrice !== null && maxPrice !== minPrice) priceClass = 'price-highest text-white';
+                                                else if (price !== null) priceClass = 'price-middle text-white';
+                                                
+                                                return `
+                                                    <td class="px-6 py-4 text-center">
+                                                        ${price !== null && price !== undefined ? `
+                                                            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${priceClass}">
+                                                                $${price.toFixed(2)}
+                                                            </span>
+                                                        ` : `
+                                                            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm bg-gray-100 text-gray-500">
+                                                                N/A
+                                                            </span>
+                                                        `}
+                                                    </td>
+                                                `;
+                                            }).join('')}
+                                            <td class="px-6 py-4 text-center">
+                                                ${bestSupplier ? `
+                                                    <div class="font-semibold text-green-600">$${bestSupplier.price.toFixed(2)}</div>
+                                                    <div class="text-xs text-gray-500">${bestSupplier.supplier.name}</div>
+                                                ` : '<span class="text-gray-400">N/A</span>'}
+                                            </td>
+                                            <td class="px-6 py-4 text-center">
+                                                <span class="inline-flex items-center px-2 py-1 rounded-full text-sm font-medium ${savings > 0 ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-500'}">
+                                                    ${savings}%
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    ${AppState.isLoading ? `
+                        <div class="px-6 py-8 text-center">
+                            <div class="loading-pulse inline-flex items-center px-4 py-2 bg-blue-100 rounded-lg">
+                                <i data-lucide="loader" class="w-5 h-5 mr-2 text-blue-600"></i>
+                                <span class="text-blue-600 font-medium">Scraping supplier data...</span>
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        // Main application rendering
+        function render() {
+            const app = document.getElementById('root');
+            app.innerHTML = `
+                <div class="min-h-screen bg-gray-50">
+                    ${Header()}
+                    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                        ${StatsCards()}
+                        ${ProductManagement()}
+                        ${PriceComparisonTable()}
+                    </main>
+                </div>
+            `;
+            
+            // Initialize Lucide icons
+            lucide.createIcons();
+        }
+
+        // Application functions (placeholder implementations)
+        function refreshData() {
+            AppState.isLoading = true;
+            render();
+            
+            // Simulate API call
+            setTimeout(() => {
+                AppState.isLoading = false;
+                AppState.lastUpdated = new Date();
+                render();
+            }, 2000);
+        }
+
+        function scrapeData() {
+            AppState.isLoading = true;
+            render();
+            
+            // Simulate scraping with random price variations
+            setTimeout(() => {
+                Object.keys(AppState.priceData).forEach(productId => {
+                    Object.keys(AppState.priceData[productId]).forEach(supplierId => {
+                        if (AppState.priceData[productId][supplierId] !== null) {
+                            const basePrice = AppState.priceData[productId][supplierId];
+                            const variation = (Math.random() - 0.5) * 4; // ±$2 variation
+                            AppState.priceData[productId][supplierId] = Math.max(0.99, basePrice + variation);
+                        }
+                    });
+                });
+                
+                AppState.isLoading = false;
+                AppState.lastUpdated = new Date();
+                render();
+            }, 3000);
+        }
+
+        function exportData() {
+            const data = {
+                products: AppState.products,
+                suppliers: AppState.suppliers,
+                prices: AppState.priceData,
+                exported: new Date().toISOString()
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `price-comparison-${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function removeProduct(productId) {
+            AppState.products = AppState.products.filter(p => p.id !== productId);
+            delete AppState.priceData[productId];
+            render();
+        }
+
+        function removeSupplier(supplierId) {
+            AppState.suppliers = AppState.suppliers.filter(s => s.id !== supplierId);
+            Object.keys(AppState.priceData).forEach(productId => {
+                delete AppState.priceData[productId][supplierId];
+            });
+            render();
+        }
+
+        function toggleAddProduct() {
+            alert('Add Product functionality would open a modal form for:\n- Product Name\n- SKU/Item Number\n- Category\n- Keywords for scraping');
+        }
+
+        function toggleAddSupplier() {
+            alert('Add Supplier functionality would open a modal form for:\n- Supplier Name\n- Website URL\n- Search patterns\n- API credentials if available');
+        }
+
+        // Initialize application
+        document.addEventListener('DOMContentLoaded', function() {
+            render();
+        });
+
+        // Export functions for external integration
+        window.PriceScraper = {
+            AppState,
+            render,
+            refreshData,
+            scrapeData,
+            exportData,
+            
+            // Hooks for future server-side integration
+            updatePrices: function(productId, supplierId, price) {
+                if (!AppState.priceData[productId]) {
+                    AppState.priceData[productId] = {};
+                }
+                AppState.priceData[productId][supplierId] = price;
+                render();
+            },
+            
+            addProduct: function(product) {
+                const newId = Math.max(...AppState.products.map(p => p.id)) + 1;
+                AppState.products.push({...product, id: newId});
+                AppState.priceData[newId] = {};
+                render();
+            },
+            
+            addSupplier: function(supplier) {
+                const newId = Math.max(...AppState.suppliers.map(s => s.id)) + 1;
+                AppState.suppliers.push({...supplier, id: newId, status: 'pending'});
+                render();
+            },
+            
+            setLoadingState: function(loading) {
+                AppState.isLoading = loading;
+                render();
+            }
+        };
+    </script>
+</body>
+</html>
