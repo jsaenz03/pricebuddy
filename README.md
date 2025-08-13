@@ -1,6 +1,10 @@
-# Clinical Supply Price Comparison Tool
+# Clinical Supply Price Tracker with Authentication
 
-A professional-grade web application for comparing prices of clinical supplies across multiple suppliers. Built with modern web technologies and shadcn/ui components for a premium user experience.
+A comprehensive price comparison application for clinical supplies featuring user authentication, subscription tiers, and advanced feature gating using Supabase and shadcn/ui v4.
+
+## 🎉 Complete Authentication System Implemented!
+
+This application now includes a full-featured authentication system with subscription management, feature gating, and user profile management.
 
 ## Features
 

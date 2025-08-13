@@ -285,3 +285,131 @@ export interface FilterConfig {
   availability?: AvailabilityStatus[]
   searchTerm?: string
 }
+
+// Authentication & User Management Types
+export interface User {
+  id: string
+  email: string
+  email_confirmed_at?: string
+  created_at: string
+  updated_at: string
+  user_metadata: {
+    full_name?: string
+    avatar_url?: string
+  }
+  app_metadata: {
+    provider?: string
+    providers?: string[]
+  }
+}
+
+export interface UserProfile {
+  id: string
+  user_id: string
+  full_name?: string
+  avatar_url?: string
+  subscription_tier: SubscriptionTier
+  subscription_status: SubscriptionStatus
+  trial_ends_at?: string
+  created_at: string
+  updated_at: string
+}
+
+export type SubscriptionTier = 'free' | 'pro' | 'enterprise'
+
+export type SubscriptionStatus = 'active' | 'trialing' | 'past_due' | 'canceled' | 'unpaid'
+
+export interface SubscriptionLimits {
+  maxProducts: number
+  maxSuppliers: number
+  maxScrapingJobs: number
+  exportFormats: string[]
+  features: string[]
+}
+
+export interface AuthState {
+  user: User | null
+  profile: UserProfile | null
+  session: any | null
+  loading: boolean
+  error: string | null
+}
+
+export interface AuthContextType extends AuthState {
+  signIn: (email: string, password: string) => Promise<{ error: any }>
+  signUp: (email: string, password: string, metadata?: any) => Promise<{ error: any }>
+  signOut: () => Promise<void>
+  resetPassword: (email: string) => Promise<{ error: any }>
+  updateProfile: (updates: Partial<UserProfile>) => Promise<{ error: any }>
+  checkFeatureAccess: (feature: string) => boolean
+  getRemainingLimits: () => SubscriptionLimits
+}
+
+// Auth Form Types
+export interface LoginFormData {
+  email: string
+  password: string
+  remember?: boolean
+}
+
+export interface SignUpFormData {
+  email: string
+  password: string
+  confirmPassword: string
+  fullName?: string
+  subscriptionTier: SubscriptionTier
+  acceptTerms: boolean
+}
+
+export interface PasswordResetFormData {
+  email: string
+}
+
+export interface ProfileUpdateFormData {
+  fullName?: string
+  email?: string
+  currentPassword?: string
+  newPassword?: string
+  confirmPassword?: string
+}
+
+// Subscription Configuration
+export const SUBSCRIPTION_LIMITS: Record<SubscriptionTier, SubscriptionLimits> = {
+  free: {
+    maxProducts: 5,
+    maxSuppliers: 3,
+    maxScrapingJobs: 10,
+    exportFormats: ['json'],
+    features: ['basic_comparison', 'manual_pricing']
+  },
+  pro: {
+    maxProducts: 50,
+    maxSuppliers: 15,
+    maxScrapingJobs: 100,
+    exportFormats: ['json', 'csv', 'xlsx'],
+    features: ['basic_comparison', 'manual_pricing', 'automated_scraping', 'price_alerts', 'advanced_analytics']
+  },
+  enterprise: {
+    maxProducts: -1, // unlimited
+    maxSuppliers: -1, // unlimited
+    maxScrapingJobs: -1, // unlimited
+    exportFormats: ['json', 'csv', 'xlsx', 'pdf'],
+    features: ['basic_comparison', 'manual_pricing', 'automated_scraping', 'price_alerts', 'advanced_analytics', 'api_access', 'white_label', 'priority_support']
+  }
+}
+
+// Supabase Configuration Types
+export interface SupabaseConfig {
+  url: string
+  anonKey: string
+  serviceRoleKey?: string
+}
+
+// Feature Access Types
+export interface FeatureGate {
+  feature: string
+  requiredTier: SubscriptionTier
+  enabled: boolean
+  description: string
+  upgradePrompt?: string
+}

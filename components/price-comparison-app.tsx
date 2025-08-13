@@ -25,6 +25,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { UserProfile } from '@/components/auth/UserProfile'
+import { FeatureGate } from '@/components/auth/AuthGuard'
 
 // Types
 interface Product {
@@ -425,6 +427,7 @@ export default function PriceComparisonApp() {
                 <Download className="w-4 h-4 mr-2" />
                 Export
               </Button>
+              <UserProfile />
             </div>
           </div>
         </div>
@@ -481,10 +484,17 @@ export default function PriceComparisonApp() {
                   <h3 className="text-lg font-medium">Tracked Products</h3>
                   <Dialog open={showProductDialog} onOpenChange={setShowProductDialog}>
                     <DialogTrigger asChild>
-                      <Button size="sm">
-                        <Plus className="w-4 h-4 mr-2" />
-                        Add Product
-                      </Button>
+                      <FeatureGate feature="basic_comparison" fallback={
+                        <Button size="sm" disabled>
+                          <Plus className="w-4 h-4 mr-2" />
+                          Add Product (Upgrade Required)
+                        </Button>
+                      }>
+                        <Button size="sm">
+                          <Plus className="w-4 h-4 mr-2" />
+                          Add Product
+                        </Button>
+                      </FeatureGate>
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
@@ -524,10 +534,17 @@ export default function PriceComparisonApp() {
                   <h3 className="text-lg font-medium">Supplier Sources</h3>
                   <Dialog open={showSupplierDialog} onOpenChange={setShowSupplierDialog}>
                     <DialogTrigger asChild>
-                      <Button size="sm" variant="outline">
-                        <Plus className="w-4 h-4 mr-2" />
-                        Add Supplier
-                      </Button>
+                      <FeatureGate feature="basic_comparison" fallback={
+                        <Button size="sm" variant="outline" disabled>
+                          <Plus className="w-4 h-4 mr-2" />
+                          Add Supplier (Upgrade Required)
+                        </Button>
+                      }>
+                        <Button size="sm" variant="outline">
+                          <Plus className="w-4 h-4 mr-2" />
+                          Add Supplier
+                        </Button>
+                      </FeatureGate>
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
@@ -583,18 +600,25 @@ export default function PriceComparisonApp() {
                 <span className="text-sm text-gray-500">
                   Last updated: {state.lastUpdated.toLocaleTimeString()}
                 </span>
-                <Button
-                  onClick={handleScrape}
-                  disabled={state.isLoading}
-                  className="bg-green-600 hover:bg-green-700"
-                >
-                  {state.isLoading ? (
-                    <Loader className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
+                <FeatureGate feature="automated_scraping" fallback={
+                  <Button disabled className="bg-gray-400">
                     <Search className="w-4 h-4 mr-2" />
-                  )}
-                  {state.isLoading ? 'Scraping...' : 'Scrape Now'}
-                </Button>
+                    Scrape Now (Pro Feature)
+                  </Button>
+                }>
+                  <Button
+                    onClick={handleScrape}
+                    disabled={state.isLoading}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    {state.isLoading ? (
+                      <Loader className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Search className="w-4 h-4 mr-2" />
+                    )}
+                    {state.isLoading ? 'Scraping...' : 'Scrape Now'}
+                  </Button>
+                </FeatureGate>
               </div>
             </div>
           </CardHeader>
